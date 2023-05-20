@@ -22,7 +22,7 @@ pub struct PocketSdk {
 }
 
 impl PocketSdk {
-    fn new(consumer_key: String, redirect_uri: String) -> Self {
+    pub fn new(consumer_key: String, redirect_uri: String) -> Self {
         let client = Client::new();
         PocketSdk {
             consumer_key,
