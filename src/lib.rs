@@ -5,14 +5,14 @@ const POCKET_API_URL: &str = "https://getpocket.com/v3";
 
 #[derive(Debug, Deserialize)]
 pub struct PocketRequestTokenResponse {
-    code: String,
-    state: Option<String>,
+    pub code: String,
+    pub state: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PocketAccessTokenResponse {
-    access_token: String,
-    username: String,
+    pub access_token: String,
+    pub username: String,
 }
 
 pub struct PocketSdk {
