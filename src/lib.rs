@@ -4,13 +4,13 @@ use serde::Deserialize;
 const POCKET_API_URL: &str = "https://getpocket.com/v3";
 
 #[derive(Debug, Deserialize)]
-struct PocketRequestTokenResponse {
+pub struct PocketRequestTokenResponse {
     code: String,
     state: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct PocketAccessTokenResponse {
+pub struct PocketAccessTokenResponse {
     access_token: String,
     username: String,
 }
@@ -31,7 +31,7 @@ impl PocketSdk {
         }
     }
 
-    async fn obtain_request_token(&self) -> Result<PocketRequestTokenResponse, reqwest::Error> {
+    pub async fn obtain_request_token(&self) -> Result<PocketRequestTokenResponse, reqwest::Error> {
         let url = format!("{}/oauth/request", POCKET_API_URL);
 
         let params = [
@@ -58,7 +58,7 @@ impl PocketSdk {
         )
     }
 
-    async fn convert_request_token_to_access_token(
+    pub async fn convert_request_token_to_access_token(
         &self,
         request_token: &str,
     ) -> Result<PocketAccessTokenResponse, reqwest::Error> {
