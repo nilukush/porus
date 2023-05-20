@@ -15,6 +15,7 @@ pub struct PocketAccessTokenResponse {
     pub username: String,
 }
 
+#[derive(Clone)] // Add the Clone trait
 pub struct PocketSdk {
     consumer_key: String,
     redirect_uri: String,
