@@ -2,6 +2,8 @@
 name = "porus"
 version = "0.1.0"
 edition = "2021"
+description = "A crate for interacting with the Pocket API."
+license = "GNU GENERAL PUBLIC LICENSE Version 3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
