@@ -4,7 +4,7 @@ use serde::Deserialize;
 const POCKET_API_URL: &str = "https://getpocket.com/v3";
 
 #[derive(Debug, Deserialize)]
-struct PocketRequestTokenResponse {
+pub struct PocketRequestTokenResponse {
     code: String,
     state: Option<String>,
 }
