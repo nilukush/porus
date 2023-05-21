@@ -49,6 +49,8 @@ impl PocketSdk {
             .json::<PocketRequestTokenResponse>()
             .await?;
 
+        println!("Response: {:#?}", response);
+
         Ok(response)
     }
 
