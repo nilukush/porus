@@ -1,5 +1,8 @@
 use reqwest::Client;
 use serde::Deserialize;
+use std::convert::From;
+use std::error::Error as StdError;
+use std::fmt;
 
 const POCKET_API_URL: &str = "https://getpocket.com/v3";
 
@@ -14,6 +17,34 @@ pub struct PocketAccessTokenResponse {
     pub access_token: String,
     pub username: String,
 }
+
+#[derive(Debug)]
+pub enum CustomError {
+    // Define your custom error types here
+    ReqwestError(reqwest::Error),
+    OtherError(Box<dyn StdError + Send + Sync>),
+}
+
+impl From<reqwest::Error> for CustomError {
+    fn from(error: reqwest::Error) -> Self {
+        CustomError::ReqwestError(error)
+    }
+}
+
+impl From<Box<dyn StdError + Send + Sync>> for CustomError {
+    fn from(error: Box<dyn StdError + Send + Sync>) -> Self {
+        CustomError::OtherError(error)
+    }
+}
+
+impl fmt::Display for CustomError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Implement how you want to format the error message
+        write!(f, "Custom Error: {:?}", self)
+    }
+}
+
+impl StdError for CustomError {}
 
 #[derive(Clone)] // Add the Clone trait
 pub struct PocketSdk {
@@ -32,7 +63,7 @@ impl PocketSdk {
         }
     }
 
-    pub async fn obtain_request_token(&self) -> Result<PocketRequestTokenResponse, reqwest::Error> {
+    pub async fn obtain_request_token(&self) -> Result<PocketRequestTokenResponse, CustomError> {
         let url = format!("{}/oauth/request", POCKET_API_URL);
 
         let params = [
@@ -48,8 +79,6 @@ impl PocketSdk {
             .await?
             .json::<PocketRequestTokenResponse>()
             .await?;
-
-        println!("Response: {:#?}", response);
 
         Ok(response)
     }
