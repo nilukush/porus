@@ -1,7 +1,8 @@
 use reqwest::Client;
+use reqwest::Error as ReqwestError;
 use serde::Deserialize;
+use serde_json::Error as JsonError;
 use std::convert::From;
-use std::error::Error as StdError;
 use std::fmt;
 
 const POCKET_API_URL: &str = "https://getpocket.com/v3";
@@ -19,32 +20,33 @@ pub struct PocketAccessTokenResponse {
 }
 
 #[derive(Debug)]
-pub enum CustomError {
-    // Define your custom error types here
-    ReqwestError(reqwest::Error),
-    OtherError(Box<dyn StdError + Send + Sync>),
-}
-
-impl From<reqwest::Error> for CustomError {
-    fn from(error: reqwest::Error) -> Self {
-        CustomError::ReqwestError(error)
-    }
-}
-
-impl From<Box<dyn StdError + Send + Sync>> for CustomError {
-    fn from(error: Box<dyn StdError + Send + Sync>) -> Self {
-        CustomError::OtherError(error)
-    }
+enum CustomError {
+    ReqwestError(ReqwestError),
+    JsonError(JsonError),
 }
 
 impl fmt::Display for CustomError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Implement how you want to format the error message
-        write!(f, "Custom Error: {:?}", self)
+        match self {
+            CustomError::ReqwestError(err) => write!(f, "ReqwestError: {}", err),
+            CustomError::JsonError(err) => write!(f, "JsonError: {}", err),
+        }
     }
 }
 
-impl StdError for CustomError {}
+impl std::error::Error for CustomError {}
+
+impl From<ReqwestError> for CustomError {
+    fn from(err: ReqwestError) -> Self {
+        CustomError::ReqwestError(err)
+    }
+}
+
+impl From<JsonError> for CustomError {
+    fn from(err: JsonError) -> Self {
+        CustomError::JsonError(err)
+    }
+}
 
 #[derive(Clone)] // Add the Clone trait
 pub struct PocketSdk {
@@ -71,16 +73,15 @@ impl PocketSdk {
             ("redirect_uri", self.redirect_uri.as_str()),
         ];
 
-        let response = self
-            .client
-            .post(&url)
-            .form(&params)
-            .send()
-            .await?
-            .json::<PocketRequestTokenResponse>()
-            .await?;
+        let response = self.client.post(&url).form(&params).send().await?;
 
-        Ok(response)
+        let body = response.text().await?;
+        println!("Response body: {}", body);
+
+        let parsed_response = serde_json::from_str::<PocketRequestTokenResponse>(&body)
+            .map_err(|err| CustomError::from(err))?;
+
+        Ok(parsed_response)
     }
 
     pub fn build_authorization_url(&self, request_token: &str) -> String {
