@@ -20,7 +20,7 @@ pub struct PocketAccessTokenResponse {
 }
 
 #[derive(Debug)]
-enum CustomError {
+pub enum CustomError {
     ReqwestError(ReqwestError),
     JsonError(JsonError),
 }
