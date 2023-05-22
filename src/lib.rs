@@ -14,6 +14,11 @@ pub struct PocketRequestTokenResponse {
     pub state: Option<String>,
 }
 
+impl fmt::Display for PocketRequestTokenResponse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Code: {}, State: {:?}", self.code, self.state)
+    }
+}
 #[derive(Debug, Deserialize)]
 pub struct PocketAccessTokenResponse {
     pub access_token: String,
