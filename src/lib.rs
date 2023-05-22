@@ -2,7 +2,6 @@ use reqwest::header;
 use reqwest::Client;
 use reqwest::Error as ReqwestError;
 use serde::Deserialize;
-use serde_json::json;
 use serde_json::Error as JsonError;
 use std::convert::From;
 use std::fmt;
@@ -78,7 +77,8 @@ impl PocketSdk {
         let response = self
             .client
             .post(&url)
-            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+            .header(header::CONTENT_TYPE, "application/json; charset=UTF-8")
+            .header("X-Accept", "application/json")
             .form(&params)
             .send()
             .await?;
@@ -86,10 +86,7 @@ impl PocketSdk {
         let body = response.text().await?;
         println!("Response body: {}", body);
 
-        let body_json = convert_body_text_to_json(body);
-        println!("{}", body_json);
-
-        let parsed_response = serde_json::from_str::<PocketRequestTokenResponse>(&body_json)
+        let parsed_response = serde_json::from_str::<PocketRequestTokenResponse>(&body)
             .map_err(|err| CustomError::from(err))?;
 
         Ok(parsed_response)
@@ -127,17 +124,6 @@ impl PocketSdk {
     }
 }
 
-fn convert_body_text_to_json(body: String) -> String {
-    let mut parts = body.splitn(2, '=');
-
-    let key = parts.next().unwrap_or("");
-    let value = parts.next().unwrap_or("");
-
-    let json_data = json!({
-        key: value,
-    });
-    json_data.to_string()
-}
 #[cfg(test)]
 mod tests {
     use super::*;
