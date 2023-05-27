@@ -1,7 +1,7 @@
 use reqwest::header;
 use reqwest::Client;
 use reqwest::Error as ReqwestError;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Error as JsonError;
 use std::convert::From;
 use std::fmt;
@@ -19,7 +19,7 @@ impl fmt::Display for PocketRequestTokenResponse {
         write!(f, "Code: {}, State: {:?}", self.code, self.state)
     }
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PocketAccessTokenResponse {
     pub access_token: String,
     pub username: String,
