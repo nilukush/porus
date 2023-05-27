@@ -25,6 +25,16 @@ pub struct PocketAccessTokenResponse {
     pub username: String,
 }
 
+impl fmt::Display for PocketAccessTokenResponse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Access Token: {}, Username: {:?}",
+            self.access_token, self.username
+        )
+    }
+}
+
 #[derive(Debug)]
 pub enum CustomError {
     ReqwestError(ReqwestError),
@@ -107,7 +117,7 @@ impl PocketSdk {
     pub async fn convert_request_token_to_access_token(
         &self,
         request_token: &str,
-    ) -> Result<PocketAccessTokenResponse, reqwest::Error> {
+    ) -> Result<PocketAccessTokenResponse, CustomError> {
         let url = format!("{}/oauth/authorize", POCKET_API_URL);
 
         let params = [
@@ -118,14 +128,19 @@ impl PocketSdk {
         let response = self
             .client
             .post(&url)
-            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+            .header(header::CONTENT_TYPE, "application/json; charset=UTF-8")
+            .header("X-Accept", "application/json")
             .form(&params)
             .send()
-            .await?
-            .json::<PocketAccessTokenResponse>()
             .await?;
 
-        Ok(response)
+        let body = response.text().await?;
+        println!("Response body: {}", body);
+
+        let parsed_response = serde_json::from_str::<PocketAccessTokenResponse>(&body)
+            .map_err(|err| CustomError::from(err))?;
+
+        Ok(parsed_response)
     }
 }
 
@@ -152,11 +167,15 @@ mod tests {
             "80908-b39061ed0999bb292f0fe716".to_string(),
             "pocketapp1234:authorizationFinished".to_string(),
         );
-        let request_token = "YOUR_REQUEST_TOKEN";
-        let result = pocket_sdk
-            .convert_request_token_to_access_token(request_token)
-            .await;
+        let result = pocket_sdk.obtain_request_token().await;
+        assert!(result.is_ok());
+        let request_token_response = result.unwrap();
+        println!("Request token response: {:?}", request_token_response);
 
+        let request_token = request_token_response.code;
+        let result = pocket_sdk
+            .convert_request_token_to_access_token(&request_token)
+            .await;
         assert!(result.is_ok());
         let access_token_response = result.unwrap();
         println!("Access token response: {:?}", access_token_response);
