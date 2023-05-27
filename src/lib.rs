@@ -8,7 +8,7 @@ use std::fmt;
 
 const POCKET_API_URL: &str = "https://getpocket.com/v3";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PocketRequestTokenResponse {
     pub code: String,
     pub state: Option<String>,
