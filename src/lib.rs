@@ -1,7 +1,7 @@
 use reqwest::header;
 use reqwest::Client;
 use reqwest::Error as ReqwestError;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Error as JsonError;
 use std::convert::From;
 use std::fmt;
@@ -63,6 +63,24 @@ impl From<ReqwestError> for CustomError {
 impl From<JsonError> for CustomError {
     fn from(err: JsonError) -> Self {
         CustomError::JsonError(err)
+    }
+}
+
+impl Serialize for CustomError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            CustomError::ReqwestError(_) => {
+                // Customize the serialization of the ReqwestError variant
+                serializer.serialize_unit()
+            }
+            CustomError::JsonError(_) => {
+                // Customize the serialization of the JsonError variant
+                serializer.serialize_unit()
+            } // Handle serialization of other error variants...
+        }
     }
 }
 
