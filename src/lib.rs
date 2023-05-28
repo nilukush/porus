@@ -7,6 +7,7 @@ use std::convert::From;
 use std::fmt;
 
 const POCKET_API_URL: &str = "https://getpocket.com/v3";
+const POCKET_API_URL_WITHOUT_VERSION: &str = "https://getpocket.com";
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PocketRequestTokenResponse {
@@ -19,6 +20,7 @@ impl fmt::Display for PocketRequestTokenResponse {
         write!(f, "Code: {}, State: {:?}", self.code, self.state)
     }
 }
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PocketAccessTokenResponse {
     pub access_token: String,
@@ -67,26 +69,27 @@ impl From<JsonError> for CustomError {
 #[derive(Clone)] // Add the Clone trait
 pub struct PocketSdk {
     consumer_key: String,
-    redirect_uri: String,
     client: Client,
 }
 
 impl PocketSdk {
-    pub fn new(consumer_key: String, redirect_uri: String) -> Self {
+    pub fn new(consumer_key: String) -> Self {
         let client = Client::new();
         PocketSdk {
             consumer_key,
-            redirect_uri,
             client,
         }
     }
 
-    pub async fn obtain_request_token(&self) -> Result<PocketRequestTokenResponse, CustomError> {
+    pub async fn obtain_request_token(
+        &self,
+        redirect_uri: &str,
+    ) -> Result<PocketRequestTokenResponse, CustomError> {
         let url = format!("{}/oauth/request", POCKET_API_URL);
 
         let params = [
             ("consumer_key", self.consumer_key.as_str()),
-            ("redirect_uri", self.redirect_uri.as_str()),
+            ("redirect_uri", redirect_uri),
         ];
 
         let response = self
@@ -107,10 +110,10 @@ impl PocketSdk {
         Ok(parsed_response)
     }
 
-    pub fn build_authorization_url(&self, request_token: &str) -> String {
+    pub fn build_authorization_url(&self, request_token: &str, redirect_uri: &str) -> String {
         format!(
             "{}/oauth/authorize?request_token={}&redirect_uri={}",
-            POCKET_API_URL, request_token, self.redirect_uri
+            POCKET_API_URL_WITHOUT_VERSION, request_token, redirect_uri
         )
     }
 
@@ -150,11 +153,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_obtain_request_token() {
-        let pocket_sdk = PocketSdk::new(
-            "80908-b39061ed0999bb292f0fe716".to_string(),
-            "pocketapp1234:authorizationFinished".to_string(),
-        );
-        let result = pocket_sdk.obtain_request_token().await;
+        let pocket_sdk = PocketSdk::new("80908-b39061ed0999bb292f0fe716".to_string());
+        let redirect_uri = "http://example.com"; // Specify the redirect URI here
+        let result = pocket_sdk.obtain_request_token(redirect_uri).await;
 
         assert!(result.is_ok());
         let request_token_response = result.unwrap();
@@ -163,16 +164,29 @@ mod tests {
 
     #[tokio::test]
     async fn test_convert_request_token_to_access_token() {
-        let pocket_sdk = PocketSdk::new(
-            "80908-b39061ed0999bb292f0fe716".to_string(),
-            "pocketapp1234:authorizationFinished".to_string(),
-        );
-        let result = pocket_sdk.obtain_request_token().await;
+        let pocket_sdk = PocketSdk::new("80908-b39061ed0999bb292f0fe716".to_string());
+
+        // Step 1: Obtain the request token
+        let result = pocket_sdk.obtain_request_token("http:://example.com").await;
         assert!(result.is_ok());
         let request_token_response = result.unwrap();
         println!("Request token response: {:?}", request_token_response);
 
+        // Step 2: Build the authorization URL
         let request_token = request_token_response.code;
+        let authorization_url =
+            pocket_sdk.build_authorization_url(&request_token, "http:://example.com");
+        println!("Authorization URL: {}", authorization_url);
+
+        // Step 3: Instruct the user to open the authorization URL and authorize the application
+
+        // Step 4: Convert the request token to an access token
+        println!("Please authorize the application and press Enter to continue...");
+        let mut input = String::new();
+        std::io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
+
         let result = pocket_sdk
             .convert_request_token_to_access_token(&request_token)
             .await;
