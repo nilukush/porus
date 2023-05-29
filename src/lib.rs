@@ -3,6 +3,7 @@ use reqwest::Client;
 use reqwest::Error as ReqwestError;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Error as JsonError;
+use std::collections::HashMap;
 use std::convert::From;
 use std::fmt;
 
@@ -35,6 +36,12 @@ impl fmt::Display for PocketAccessTokenResponse {
             self.access_token, self.username
         )
     }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct PocketTag {
+    pub tag: String,
+    pub item_count: usize,
 }
 
 #[derive(Debug)]
@@ -82,6 +89,64 @@ impl Serialize for CustomError {
             } // Handle serialization of other error variants...
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PocketResponse {
+    pub status: usize,
+    pub complete: usize,
+    pub list: HashMap<String, PocketItem>,
+    pub error: Option<String>,
+    pub search_meta: SearchMeta,
+    pub since: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PocketItem {
+    pub item_id: String,
+    pub resolved_id: String,
+    pub given_url: String,
+    pub given_title: String,
+    pub favorite: String,
+    pub status: String,
+    pub time_added: String,
+    pub time_updated: String,
+    pub time_read: String,
+    pub time_favorited: String,
+    pub sort_id: usize,
+    pub resolved_title: String,
+    pub resolved_url: String,
+    pub excerpt: String,
+    pub is_article: String,
+    pub is_index: String,
+    pub has_video: String,
+    pub has_image: String,
+    pub word_count: String,
+    pub lang: String,
+    pub top_image_url: String,
+    pub tags: HashMap<String, Tag>,
+    pub image: Option<Image>,
+    pub images: HashMap<String, Image>,
+    pub listen_duration_estimate: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Tag {
+    pub item_id: String,
+    pub tag: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Image {
+    pub item_id: String,
+    pub src: String,
+    pub width: String,
+    pub height: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SearchMeta {
+    pub search_type: String,
 }
 
 #[derive(Clone)] // Add the Clone trait
@@ -163,11 +228,57 @@ impl PocketSdk {
 
         Ok(parsed_response)
     }
+
+    pub async fn get_tags_with_article_count(
+        &self,
+        access_token: &str,
+    ) -> Result<Vec<PocketTag>, CustomError> {
+        let url = format!("{}/get", POCKET_API_URL);
+
+        let params = [
+            ("consumer_key", self.consumer_key.as_str()),
+            ("access_token", access_token),
+            ("state", "all"),
+            ("detailType", "complete"),
+        ];
+
+        let response = self
+            .client
+            .post(&url)
+            .header(header::CONTENT_TYPE, "application/json; charset=UTF-8")
+            .header("X-Accept", "application/json")
+            .form(&params)
+            .send()
+            .await?;
+
+        let body = response.text().await?;
+        println!("Response body: {}", body);
+
+        let parsed_response: PocketResponse =
+            serde_json::from_str(&body).map_err(|err| CustomError::from(err))?;
+
+        let mut tags_with_article_count: HashMap<String, usize> = HashMap::new();
+        for item in parsed_response.list.values() {
+            for tag in item.tags.keys() {
+                let tag_entry = tags_with_article_count.entry(tag.clone()).or_insert(0);
+                *tag_entry += 1;
+            }
+        }
+
+        let tags_with_article_count = tags_with_article_count
+            .into_iter()
+            .map(|(tag, item_count)| PocketTag { tag, item_count })
+            .collect();
+
+        Ok(tags_with_article_count)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use httpmock::Method;
+    use httpmock::MockServer;
 
     #[tokio::test]
     async fn test_obtain_request_token() {
@@ -211,5 +322,39 @@ mod tests {
         assert!(result.is_ok());
         let access_token_response = result.unwrap();
         println!("Access token response: {:?}", access_token_response);
+    }
+
+    #[tokio::test]
+    async fn test_get_tags_with_article_count() {
+        // Initialize the PocketSdk with a dummy consumer key
+        let pocket_sdk = PocketSdk::new("80908-b39061ed0999bb292f0fe716".to_string());
+
+        // Mock the HTTP response body
+        let response_body = r#"{"status":1,"complete":1,"list":{"30211549":{"item_id":"30211549","resolved_id":"30211549","given_url":"https:\/\/www.homeremediesweb.com","given_title":"","favorite":"0","status":"0","time_added":"1537696723","time_updated":"1537696723","time_read":"0","time_favorited":"0","sort_id":0,"resolved_title":"Good Health Starts At Home","resolved_url":"https:\/\/www.homeremediesweb.com\/","excerpt":"Welcome to Home Remedies Web, one of the premier online resources for finding free home remedies from around the world. Natural remedies, home remedies, and herbal supplements are growing in popularity as more and more people discover the magical benefits of these forms of alternative medicine.","is_article":"0","is_index":"1","has_video":"0","has_image":"1","word_count":"96","lang":"en","top_image_url":"https:\/\/www.homeremediesweb.com\/assets\/img\/logo_social.jpg","listen_duration_estimate":37}},"error":null,"search_meta":{"search_type":"normal"},"since":1685373830}"#;
+
+        // Create a mock server
+        let server = MockServer::start();
+
+        // Create a mock response
+        let _mock = server.mock(|when, then| {
+            when.method(Method::POST)
+                .path("/get")
+                .header("Content-Type", "application/json; charset=UTF-8");
+            then.status(200)
+                .header("Content-Type", "application/json; charset=UTF-8")
+                .body(response_body);
+        });
+
+        // Perform the test
+        let access_token = "f52be2ce-e2e1-366d-0acb-b19670";
+        let result = pocket_sdk.get_tags_with_article_count(access_token).await;
+
+        if let Err(err) = &result {
+            eprintln!("Error: {}", err);
+        }
+
+        assert!(result.is_ok());
+        let tags_with_article_count = result.unwrap();
+        println!("Tags with article count: {:?}", tags_with_article_count);
     }
 }
