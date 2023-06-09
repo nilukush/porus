@@ -8,6 +8,7 @@ use std::fmt;
 pub enum CustomError {
     ReqwestError(ReqwestError),
     JsonError(JsonError),
+    StringError(String), // New variant to hold the error message as a String
 }
 
 impl fmt::Display for CustomError {
@@ -15,6 +16,7 @@ impl fmt::Display for CustomError {
         match self {
             CustomError::ReqwestError(err) => write!(f, "ReqwestError: {}", err),
             CustomError::JsonError(err) => write!(f, "JsonError: {}", err),
+            CustomError::StringError(err) => write!(f, "StringError: {}", err),
         }
     }
 }
@@ -33,6 +35,12 @@ impl From<JsonError> for CustomError {
     }
 }
 
+impl From<String> for CustomError {
+    fn from(err: String) -> Self {
+        CustomError::StringError(err)
+    }
+}
+
 impl serde::Serialize for CustomError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -45,6 +53,10 @@ impl serde::Serialize for CustomError {
             }
             CustomError::JsonError(_) => {
                 // Customize the serialization of the JsonError variant
+                serializer.serialize_unit()
+            }
+            CustomError::StringError(_) => {
+                // Customize the serialization of the StringError variant
                 serializer.serialize_unit()
             }
         }
